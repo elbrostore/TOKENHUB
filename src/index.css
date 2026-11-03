@@ -172,3 +172,154 @@ button:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
   .task-details > span { display: none; }
   .search-button { display: none; }
 }
+
+/* TOKENHUB Authentication */
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #080b12;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 460px;
+  padding: 38px;
+  border: 1px solid #252d39;
+  border-radius: 20px;
+  background: #101722;
+  color: #f4f7fb;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, .35);
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 45px;
+}
+
+.auth-heading {
+  margin-bottom: 28px;
+}
+
+.auth-heading h1 {
+  margin: 12px 0;
+  font-size: 32px;
+  letter-spacing: -1px;
+}
+
+.auth-heading p {
+  color: #98a4b5;
+  line-height: 1.7;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-form label {
+  margin-top: 8px;
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.auth-form input {
+  width: 100%;
+  padding: 14px 15px;
+  border: 1px solid #303b4b;
+  border-radius: 10px;
+  outline: none;
+  background: #0b111b;
+  color: #fff;
+  font: inherit;
+}
+
+.auth-form input:focus {
+  border-color: #b4f34a;
+  box-shadow: 0 0 0 3px rgba(180, 243, 74, .1);
+}
+
+.auth-submit {
+  width: 100%;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.auth-submit:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.auth-links {
+  margin-top: 24px;
+  text-align: center;
+  color: #9ba7b7;
+  font-size: 14px;
+}
+
+.auth-links p {
+  margin: 12px 0 0;
+}
+
+.auth-links button {
+  border: 0;
+  padding: 4px;
+  background: none;
+  color: #b4f34a;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.auth-error,
+.auth-message {
+  padding: 12px;
+  border-radius: 9px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.auth-error {
+  color: #ffb4b4;
+  background: rgba(220, 60, 60, .12);
+  border: 1px solid rgba(220, 60, 60, .3);
+}
+
+.auth-message {
+  color: #c8f58a;
+  background: rgba(180, 243, 74, .08);
+  border: 1px solid rgba(180, 243, 74, .2);
+}
+
+.auth-footer {
+  margin-top: 35px;
+  padding-top: 18px;
+  border-top: 1px solid #26303d;
+  color: #778397;
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+}
+
+.auth-loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: #080b12;
+  color: #b4f34a;
+}
+
+@media (max-width: 520px) {
+  .auth-card {
+    padding: 25px 20px;
+  }
+
+  .auth-heading h1 {
+    font-size: 27px;
+  }
+}

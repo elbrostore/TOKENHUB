@@ -1,11 +1,14 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import {
   LayoutDashboard, Zap, Wallet, History, Users, Bell, Settings,
-  LogOut, Search, Menu, X, ArrowUpRight,
-  Gift, Target, TrendingUp, ShieldCheck, ChevronRight,
-  CircleDollarSign, Clock3, CheckCircle2, LockKeyhole
+  LogOut, Search, Menu, X, ArrowUpRight, Gift, Target,
+  TrendingUp, ShieldCheck, ChevronRight, CircleDollarSign,
+  Clock3, CheckCircle2, LockKeyhole
 } from "lucide-react";
+import { supabase } from "./lib/supabase";
+import type { User } from "@supabase/supabase-js";
 import "./index.css";
 
 const menu = [
@@ -31,9 +34,96 @@ const transactions = [
 ];
 
 function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register" | "forgot">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const [authError, setAuthError] = useState("");
+
   const [active, setActive] = useState("Dashboard");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!mounted) return;
+      if (error) setAuthError(error.message);
+      setUser(data.session?.user ?? null);
+      setAuthLoading(false);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+        setAuthLoading(false);
+      }
+    );
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleAuth = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoading(true);
+    setAuthError("");
+    setAuthMessage("");
+
+    try {
+      if (authMode === "register") {
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+        });
+
+        if (error) throw error;
+
+        if (data.session) {
+          setAuthMessage("Your account has been created successfully.");
+        } else {
+          setAuthMessage("Account created. Please check your email to confirm your account before signing in.");
+          setAuthMode("login");
+        }
+      } else if (authMode === "login") {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.resetPasswordForEmail(
+          email.trim(),
+          { redirectTo: window.location.origin }
+        );
+
+        if (error) throw error;
+        setAuthMessage("If an account exists for this email, a password reset link will be sent.");
+      }
+    } catch (error) {
+      setAuthError(
+        error instanceof Error ? error.message : "Something went wrong. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) setNotice(error.message);
+    else {
+      setNotice("");
+      setActive("Dashboard");
+    }
+  };
 
   const selectPage = (name: string) => {
     setActive(name);
@@ -44,6 +134,102 @@ function App() {
       setNotice("");
     }
   };
+
+  if (authLoading) {
+    return <div className="auth-loading">Loading TOKENHUB...</div>;
+  }
+
+  if (!user) {
+    return (
+      <main className="auth-page">
+        <section className="auth-card">
+          <div className="auth-brand">
+            <div className="brand-symbol">T</div>
+            <div>
+              <div className="brand-name">TOKEN<span>HUB</span></div>
+              <div className="brand-caption">REWARDS PLATFORM</div>
+            </div>
+          </div>
+
+          <div className="auth-heading">
+            <span className="section-kicker">YOUR REWARDS, YOUR PROGRESS</span>
+            <h1>
+              {authMode === "login" && "Welcome back."}
+              {authMode === "register" && "Create your account."}
+              {authMode === "forgot" && "Reset your password."}
+            </h1>
+            <p>
+              {authMode === "login" && "Sign in to continue to your TOKENHUB workspace."}
+              {authMode === "register" && "Join TOKENHUB and start your rewards journey."}
+              {authMode === "forgot" && "Enter your email and we'll send you a reset link if an account exists."}
+            </p>
+          </div>
+
+          <form className="auth-form" onSubmit={handleAuth}>
+            <label htmlFor="auth-email">Email address</label>
+            <input
+              id="auth-email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+
+            {authMode !== "forgot" && (
+              <>
+                <label htmlFor="auth-password">Password</label>
+                <input
+                  id="auth-password"
+                  type="password"
+                  autoComplete={authMode === "login" ? "current-password" : "new-password"}
+                  placeholder="At least 6 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  minLength={6}
+                  required
+                />
+              </>
+            )}
+
+            {authError && <div className="auth-error">{authError}</div>}
+            {authMessage && <div className="auth-message">{authMessage}</div>}
+
+            <button className="primary-button auth-submit" type="submit" disabled={loading}>
+              {loading ? "Please wait..." : authMode === "login" ? "Sign in" : authMode === "register" ? "Create account" : "Send reset link"}
+              {!loading && <ArrowUpRight size={17} />}
+            </button>
+          </form>
+
+          <div className="auth-links">
+            {authMode === "login" && (
+              <>
+                <button type="button" onClick={() => { setAuthMode("forgot"); setAuthError(""); setAuthMessage(""); }}>
+                  Forgot password?
+                </button>
+                <p>Don't have an account? <button type="button" onClick={() => { setAuthMode("register"); setAuthError(""); setAuthMessage(""); }}>Create one</button></p>
+              </>
+            )}
+            {authMode === "register" && (
+              <p>Already have an account? <button type="button" onClick={() => { setAuthMode("login"); setAuthError(""); setAuthMessage(""); }}>Sign in</button></p>
+            )}
+            {authMode === "forgot" && (
+              <p>Remember your password? <button type="button" onClick={() => { setAuthMode("login"); setAuthError(""); setAuthMessage(""); }}>Back to sign in</button></p>
+            )}
+          </div>
+
+          <div className="auth-footer">TOKENHUB · SECURE ACCOUNT ACCESS</div>
+        </section>
+      </main>
+    );
+  }
+
+  const displayName =
+    user.user_metadata?.username ||
+    user.user_metadata?.full_name ||
+    user.email?.split("@")[0] ||
+    "Member";
 
   return (
     <div className="app-shell">
@@ -84,7 +270,7 @@ function App() {
             <p>Keep your account secure and your information private.</p>
             <button onClick={() => selectPage("Settings")}>Security settings <ArrowUpRight size={14} /></button>
           </div>
-          <button className="nav-item logout" onClick={() => setNotice("Authentication will be enabled when Supabase is connected.")}>
+          <button className="nav-item logout" onClick={handleSignOut}>
             <LogOut size={19} /><span>Sign out</span>
           </button>
           <div className="version">TOKENHUB · VERSION 1.0</div>
@@ -104,8 +290,8 @@ function App() {
             <button className="search-button" onClick={() => setNotice("Search will be available in a future update.")}><Search size={18} /></button>
             <button className="notification-button" onClick={() => selectPage("Notifications")}><Bell size={19} /><i /></button>
             <div className="profile">
-              <div className="avatar">U</div>
-              <div className="profile-info"><strong>Guest User</strong><span>Free Member</span></div>
+              <div className="avatar">{displayName.charAt(0).toUpperCase()}</div>
+              <div className="profile-info"><strong>{displayName}</strong><span>{user.email}</span></div>
             </div>
           </div>
         </header>
