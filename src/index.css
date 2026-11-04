@@ -80,7 +80,6 @@ button:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
 .stat-number small { color: #7d8b9b; font: 700 9px 'DM Sans'; letter-spacing: .7px; }
 .stat-bottom { border-top: 1px solid #202b37; padding-top: 11px; }
 .muted { color: #7d8a9a; font-size: 10px; }
-.demo-tag, .status-demo { color: #c7a76b; background: #342d20; padding: 4px 7px; border-radius: 5px; font-size: 8px; font-weight: 800; letter-spacing: .5px; }
 .stat-neutral { color: #738195; font-size: 12px; }
 .content-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(260px, .9fr); gap: 16px; margin-bottom: 17px; }
 .panel { padding: 21px; min-width: 0; }
@@ -126,7 +125,6 @@ button:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
 .positive { color: var(--green); }
 .negative { color: #ff8d8d; }
 .transaction-row strong small { font-size: 8px; color: #8491a0; }
-.demo-disclaimer { color: #8f7950; background: #29251c; border-radius: 6px; padding: 9px 11px; font-size: 9px; margin-top: 8px; }
 .footer { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 10px 0; color: #657386; font-size: 9px; }
 .footer-brand { font-size: 13px; }
 .footer-links { display: flex; gap: 16px; }
@@ -163,14 +161,12 @@ button:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
   .panel { padding: 16px; }
   .table-head, .transaction-row { grid-template-columns: 1.4fr .8fr .7fr; }
   .table-head span:nth-child(2), .transaction-date { display: none; }
-  .table-head span:nth-child(4), .transaction-row .status-demo { display: none; }
-  .footer { flex-wrap: wrap; }
+    .footer { flex-wrap: wrap; }
 }
 @media (max-width: 390px) {
   .stats-grid { grid-template-columns: 1fr; }
   .task-item { gap: 9px; }
   .task-details > span { display: none; }
-  .search-button { display: none; }
 }
 
 /* TOKENHUB Authentication */

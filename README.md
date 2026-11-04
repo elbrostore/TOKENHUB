@@ -1,32 +1,32 @@
-# React + TypeScript + Vite
+# TOKENHUB
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Rewards platform: users complete verified tasks, earn tokens, invite friends and request withdrawals.
+React 19 + TypeScript + Vite 8 on the front end, Supabase (Auth, PostgreSQL, Edge Functions) on the back end, deployed on Vercel.
 
-Currently, two official plugins are available:
+## Architecture
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| Layer | What it does |
+| --- | --- |
+| `src/` | SPA. Hash routing (`#/earn`, `#/wallet`, ...), Supabase Auth, no business rules. |
+| `supabase/migrations/` | Schema alignment, RLS, secure SQL functions. **All balance changes go through `credit_wallet()`**, which clients cannot call. |
+| `supabase/functions/provider-callback/` | Verifies provider HMAC signatures, then calls `process_provider_event()` with the service role. |
+| `supabase/tests/` | Local test suite (plain PostgreSQL + Supabase stub, and Deno for the Edge Function). |
 
-## React Compiler
+Security rules enforced in the database: users can only read their own rows; wallets, transactions, referrals, provider events
+and withdrawals are not writable by clients; rewards use `tasks.reward` (never a client/provider amount); every movement has a
+unique idempotency key; admins live in `admin_users` and every admin RPC re-checks `is_admin()`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Local development
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+cp .env.example .env.local   # fill VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY
+npm install
+npm run dev
+npm run lint && npm run build
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Documentation
+
+- `docs/DEPLOYMENT_REVIEW.md`: what changed, exact deployment order, risks (requires approval before production).
+- `docs/PROVIDER_INTEGRATION.md`: how to connect an offerwall/survey provider.
+- `supabase/inspect_schema.sql`: read-only schema inspection to run before the migration.
