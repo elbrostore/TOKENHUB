@@ -2,10 +2,15 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import CryptoJS from "npm:crypto-js@4.2.0";
 
+const MAX_BODY_SIZE = 16 * 1024;
+
 function response(text: string, status = 200) {
   return new Response(text, {
     status,
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
   });
 }
 
@@ -24,7 +29,7 @@ function validUuid(value: string): boolean {
 }
 
 Deno.serve(async (req) => {
-  if (req.method !== "POST" && req.method !== "GET") {
+  if (req.method !== "POST") {
     return response("Method not allowed", 405);
   }
 
@@ -34,26 +39,70 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!secret || !supabaseUrl || !serviceKey) {
+      console.error("Offerwall server configuration is incomplete");
       return response("Server configuration error", 500);
     }
 
-    const params = new URLSearchParams(new URL(req.url).search);
+    const contentType = (
+      req.headers.get("content-type") ?? ""
+    ).split(";")[0].trim().toLowerCase();
 
-    if (req.method === "POST") {
-      const contentType = req.headers.get("content-type") ?? "";
+    if (
+      contentType !== "application/json" &&
+      contentType !== "application/x-www-form-urlencoded"
+    ) {
+      return response("Unsupported content type", 415);
+    }
 
-      if (contentType.includes("application/json")) {
-        const body = await req.json();
-        for (const [key, value] of Object.entries(body)) {
-          if (value !== undefined && value !== null) {
-            params.set(key, String(value));
-          }
+    const contentLength = Number(req.headers.get("content-length") ?? "0");
+
+    if (
+      !Number.isFinite(contentLength) ||
+      contentLength < 0 ||
+      contentLength > MAX_BODY_SIZE
+    ) {
+      return response("Invalid request size", 413);
+    }
+
+    const rawBody = await req.text();
+
+    if (new TextEncoder().encode(rawBody).length > MAX_BODY_SIZE) {
+      return response("Request too large", 413);
+    }
+
+    const params = new URLSearchParams();
+
+    if (contentType === "application/json") {
+      let body: unknown;
+
+      try {
+        body = JSON.parse(rawBody);
+      } catch {
+        return response("Invalid JSON", 400);
+      }
+
+      if (
+        typeof body !== "object" ||
+        body === null ||
+        Array.isArray(body)
+      ) {
+        return response("Invalid JSON body", 400);
+      }
+
+      for (const [key, value] of Object.entries(body)) {
+        if (
+          value !== undefined &&
+          value !== null &&
+          typeof value !== "object"
+        ) {
+          params.set(key, String(value));
         }
-      } else {
-        const body = new URLSearchParams(await req.text());
-        for (const [key, value] of body.entries()) {
-          params.set(key, value);
-        }
+      }
+    } else {
+      const form = new URLSearchParams(rawBody);
+
+      for (const [key, value] of form.entries()) {
+        params.set(key, value);
       }
     }
 
@@ -78,17 +127,30 @@ Deno.serve(async (req) => {
       return response("Invalid user ID", 400);
     }
 
-    // Placement currency is configured with zero decimal places.
-    if (!/^\d+$/.test(rewardRaw) || !/^\d+(\.\d+)?$/.test(payoutRaw)) {
+    if (
+      transId.trim().length === 0 ||
+      transId.length > 255
+    ) {
+      return response("Invalid transaction ID", 400);
+    }
+
+    // Placement currency uses zero decimal places.
+    if (
+      !/^\d+$/.test(rewardRaw) ||
+      !/^\d+(\.\d{1,4})?$/.test(payoutRaw)
+    ) {
       return response("Invalid numeric values", 400);
+    }
+
+    if (!/^[a-f0-9]{32}$/.test(signature)) {
+      return response("Invalid signature", 403);
     }
 
     const expected = CryptoJS.MD5(
       subId + transId + rewardRaw + secret,
     ).toString().toLowerCase();
 
-    if (!/^[a-f0-9]{32}$/.test(signature) ||
-        !safeEqual(expected, signature)) {
+    if (!safeEqual(expected, signature)) {
       return response("Invalid signature", 403);
     }
 
@@ -132,11 +194,18 @@ Deno.serve(async (req) => {
     );
 
     if (error) {
-      console.error("Offerwall transaction processing failed:", error.message);
+      console.error(
+        "Offerwall transaction processing failed:",
+        error.message,
+      );
       return response("Processing failed", 500);
     }
 
-    console.log("Offerwall postback processed:", data?.result ?? "ok");
+    console.log(
+      "Offerwall postback processed:",
+      data?.result ?? "ok",
+    );
+
     return response("ok", 200);
   } catch (error) {
     console.error("Offerwall postback error:", error);

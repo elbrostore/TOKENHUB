@@ -1,0 +1,5 @@
+[functions.offerwall-launch]
+verify_jwt = true
+
+[functions.offerwall-postback]
+verify_jwt = false
