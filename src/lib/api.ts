@@ -229,3 +229,44 @@ export async function createOfferwallSession(): Promise<{
     expires_at: data.expires_at,
   };
 }
+/* ---------- Offerwall IP diagnostic ---------- */
+
+export interface OfferwallIpDiagnostic {
+  success: boolean;
+  diagnostic: {
+    cfConnectingIpPresent: boolean;
+    cfIpCountryPresent: boolean;
+    xForwardedForPresent: boolean;
+    xRealIpPresent: boolean;
+  };
+  message: string;
+}
+
+export async function checkOfferwallIpHeaders(): Promise<OfferwallIpDiagnostic> {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.access_token) {
+    throw new Error("Your session has expired. Please sign in again.");
+  }
+
+  const { data, error } = await supabase.functions.invoke("offerwall-ip-check", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+
+  if (error) {
+    console.error("Offerwall IP diagnostic error:", error);
+    throw new Error(error.message || "Could not check IP headers.");
+  }
+
+  if (!data?.success || !data?.diagnostic) {
+    throw new Error("Invalid IP diagnostic response.");
+  }
+
+  return data as OfferwallIpDiagnostic;
+}
