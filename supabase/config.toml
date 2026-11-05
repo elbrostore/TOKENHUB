@@ -3,3 +3,6 @@ verify_jwt = true
 
 [functions.offerwall-postback]
 verify_jwt = false
+
+[functions.offerwall-ip-check]
+verify_jwt = true
