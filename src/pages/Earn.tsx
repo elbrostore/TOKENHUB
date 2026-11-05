@@ -1,7 +1,12 @@
 
 import { useState } from "react";
-import { ArrowUpRight, ShieldCheck, Zap } from "lucide-react";
-import { fetchMyCompletions, fetchTasks, startTask } from "../lib/api";
+import { ArrowUpRight, ShieldCheck, Zap, ExternalLink } from "lucide-react";
+import {
+  fetchMyCompletions,
+  fetchTasks,
+  startTask,
+  createOfferwallSession,
+} from "../lib/api";
 import { formatTokens, friendlyError } from "../lib/format";
 import { useAsync } from "../hooks/useAsync";
 import { Alert, Badge, EmptyState, ErrorState, Loading } from "../components/ui";
@@ -23,6 +28,7 @@ function taskState(task: Task, completions: TaskCompletion[]) {
   const mine = completions.filter((c) => c.task_id === task.id);
   const done = mine.filter((c) => c.status === "completed").length;
   const open = mine.some((c) => c.status === "started");
+
   return {
     done,
     open,
@@ -33,17 +39,61 @@ function taskState(task: Task, completions: TaskCompletion[]) {
 export function Earn() {
   const tasks = useAsync(fetchTasks, []);
   const completions = useAsync(fetchMyCompletions, []);
+
   const [busy, setBusy] = useState<string | null>(null);
+  const [offerwallBusy, setOfferwallBusy] = useState(false);
+
   const [message, setMessage] = useState<{
     kind: "success" | "error";
     text: string;
   } | null>(null);
 
+  const openOfferwall = async () => {
+    setMessage(null);
+
+    // Open synchronously to avoid browser popup blocking.
+    const popup = window.open("about:blank", "_blank");
+
+    if (!popup) {
+      setMessage({
+        kind: "error",
+        text: "Your browser blocked the new tab. Allow pop-ups and try again.",
+      });
+      return;
+    }
+
+    popup.opener = null;
+    setOfferwallBusy(true);
+
+    try {
+      const session = await createOfferwallSession();
+      const url = safeUrl(session.url);
+
+      if (!url || !url.startsWith("https://offerwall.me/")) {
+        throw new Error("Invalid Offerwall URL returned by the server.");
+      }
+
+      popup.location.replace(url);
+
+      setMessage({
+        kind: "success",
+        text: "Offerwall opened. Complete offers honestly and wait for verified provider confirmation.",
+      });
+    } catch (e) {
+      popup.close();
+      setMessage({
+        kind: "error",
+        text: friendlyError(e),
+      });
+    } finally {
+      setOfferwallBusy(false);
+    }
+  };
+
   const begin = async (task: Task) => {
     setBusy(task.id);
     setMessage(null);
 
-    // Open the tab immediately during the user's click.
     const popup = window.open("about:blank", "_blank");
     if (popup) popup.opener = null;
 
@@ -77,9 +127,11 @@ export function Earn() {
   };
 
   if (tasks.loading || completions.loading) return <Loading />;
+
   if (tasks.error) {
     return <ErrorState message={tasks.error} onRetry={tasks.reload} />;
   }
+
   if (completions.error) {
     return (
       <ErrorState
@@ -105,6 +157,38 @@ export function Earn() {
           {message.text}
         </Alert>
       )}
+
+      <section className="task-card" style={{ marginBottom: 20 }}>
+        <div className="task-card-top">
+          <div className="task-icon">
+            <ExternalLink size={21} />
+          </div>
+          <span className="chip">Offerwall</span>
+        </div>
+
+        <h4>Discover more earning opportunities</h4>
+        <p>
+          Complete eligible offers from our provider. Rewards are credited
+          only after the provider verifies the transaction.
+        </p>
+
+        <div className="task-card-bottom">
+          <div className="muted">
+            Secure provider verification
+          </div>
+
+          <button
+            className="primary-button small"
+            disabled={offerwallBusy}
+            onClick={openOfferwall}
+          >
+            {offerwallBusy ? "Opening..." : "Open Offerwall"}
+            <ArrowUpRight size={14} />
+          </button>
+        </div>
+      </section>
+
+      <h3>Available Tasks</h3>
 
       {!list.length ? (
         <EmptyState

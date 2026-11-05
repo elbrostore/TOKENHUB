@@ -150,3 +150,21 @@ export async function emailMap(userIds: string[]): Promise<Map<string, string | 
   const rows = unwrap(await supabase.from("profiles").select("id,email").in("id", ids)) as { id: string; email: string | null }[];
   return new Map(rows.map((r) => [r.id, r.email]));
 }
+
+export async function createOfferwallSession(): Promise<{ url: string; expires_at: number }> {
+  const { data, error } = await supabase.functions.invoke("offerwall-launch", {
+    method: "POST",
+  });
+
+  if (error) throw new Error(error.message || "Could not open Offerwall");
+
+  if (
+    !data ||
+    typeof data.url !== "string" ||
+    typeof data.expires_at !== "number"
+  ) {
+    throw new Error("Invalid Offerwall session response");
+  }
+
+  return data as { url: string; expires_at: number };
+}
