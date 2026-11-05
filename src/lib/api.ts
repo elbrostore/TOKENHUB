@@ -1,3 +1,4 @@
+
 import { supabase } from "./supabase";
 import type {
   AdminStats, AdminUser, AppNotification, Dashboard, Profile, ProviderEvent, PublicSettings,
@@ -56,7 +57,12 @@ export async function startTask(taskId: string): Promise<{ click_id: string; act
   return unwrap(await supabase.rpc("start_task", { p_task_id: taskId })) as { click_id: string; action_url: string | null };
 }
 
-export interface TransactionQuery { page: number; filter: "all" | "earnings" | "spending"; type?: string; userId?: string }
+export interface TransactionQuery {
+  page: number;
+  filter: "all" | "earnings" | "spending";
+  type?: string;
+  userId?: string;
+}
 
 export async function fetchTransactions(q: TransactionQuery): Promise<{ rows: WalletTransaction[]; total: number }> {
   let query = supabase.from("wallet_transactions")
@@ -93,13 +99,16 @@ export async function markNotificationsRead(ids?: string[]): Promise<void> {
 }
 
 /* ---------- Admin ---------- */
+
 export async function adminStats(): Promise<AdminStats> {
   return unwrap(await supabase.rpc("admin_stats")) as AdminStats;
 }
 
 export async function adminUsers(search: string, page: number): Promise<AdminUser[]> {
   return unwrap(await supabase.rpc("admin_list_users", {
-    p_search: search || null, p_limit: PAGE_SIZE, p_offset: page * PAGE_SIZE,
+    p_search: search || null,
+    p_limit: PAGE_SIZE,
+    p_offset: page * PAGE_SIZE,
   })) as AdminUser[];
 }
 
@@ -111,28 +120,47 @@ export async function adminAllTasks(): Promise<Task[]> {
   return unwrap(await supabase.from("tasks").select("*").order("created_at", { ascending: false }));
 }
 
-export type TaskInput = Pick<Task, "title" | "description" | "task_type" | "reward" | "provider" | "action_url" | "is_active" | "max_completions_per_user">;
+export type TaskInput = Pick<
+  Task,
+  "title" | "description" | "task_type" | "reward" | "provider" | "action_url" | "is_active" | "max_completions_per_user"
+>;
 
 export async function adminSaveTask(id: string | null, values: TaskInput): Promise<void> {
-  if (id) unwrap(await supabase.from("tasks").update(values).eq("id", id));
-  else unwrap(await supabase.from("tasks").insert(values));
+  if (id) {
+    unwrap(await supabase.from("tasks").update(values).eq("id", id));
+  } else {
+    unwrap(await supabase.from("tasks").insert(values));
+  }
 }
 
 export async function adminAllWithdrawals(status: string): Promise<(WithdrawalRequest & { email: string | null })[]> {
-  let query = supabase.from("withdrawal_requests").select("*").order("created_at", { ascending: false }).limit(100);
+  let query = supabase.from("withdrawal_requests")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(100);
   if (status) query = query.eq("status", status);
   const rows = unwrap(await query) as WithdrawalRequest[];
   const emails = await emailMap(rows.map((r) => r.user_id));
   return rows.map((r) => ({ ...r, email: emails.get(r.user_id) ?? null }));
 }
 
-export async function adminReviewWithdrawal(id: string, action: "approve" | "reject" | "pay", note: string): Promise<void> {
-  unwrap(await supabase.rpc("admin_review_withdrawal", { p_id: id, p_action: action, p_note: note || null }));
+export async function adminReviewWithdrawal(
+  id: string,
+  action: "approve" | "reject" | "pay",
+  note: string,
+): Promise<void> {
+  unwrap(await supabase.rpc("admin_review_withdrawal", {
+    p_id: id,
+    p_action: action,
+    p_note: note || null,
+  }));
 }
 
 export async function adminProviderEvents(): Promise<ProviderEvent[]> {
   return unwrap(await supabase.from("provider_events")
-    .select("id,provider,event_id,event_type,status,error,user_id,received_at").order("received_at", { ascending: false }).limit(100));
+    .select("id,provider,event_id,event_type,status,error,user_id,received_at")
+    .order("received_at", { ascending: false })
+    .limit(100));
 }
 
 export async function adminSaveSettings(values: PublicSettings): Promise<void> {
@@ -147,24 +175,57 @@ export async function adminSaveSettings(values: PublicSettings): Promise<void> {
 export async function emailMap(userIds: string[]): Promise<Map<string, string | null>> {
   const ids = [...new Set(userIds)];
   if (!ids.length) return new Map();
-  const rows = unwrap(await supabase.from("profiles").select("id,email").in("id", ids)) as { id: string; email: string | null }[];
+  const rows = unwrap(await supabase.from("profiles").select("id,email").in("id", ids)) as {
+    id: string;
+    email: string | null;
+  }[];
   return new Map(rows.map((r) => [r.id, r.email]));
 }
 
-export async function createOfferwallSession(): Promise<{ url: string; expires_at: number }> {
+/* ---------- Offerwall ---------- */
+
+export async function createOfferwallSession(): Promise<{
+  url: string;
+  expires_at: number;
+}> {
+  // Get the authenticated user's current session.
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError) {
+    throw new Error("Could not read your login session. Please sign in again.");
+  }
+
+  if (!session?.access_token) {
+    throw new Error("Your session has expired. Please sign in again.");
+  }
+
+  // Send the user's JWT explicitly to the protected Edge Function.
   const { data, error } = await supabase.functions.invoke("offerwall-launch", {
     method: "POST",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
   });
 
-  if (error) throw new Error(error.message || "Could not open Offerwall");
+  if (error) {
+    console.error("Offerwall launch error:", error);
+    throw new Error(error.message || "Could not open Offerwall");
+  }
 
   if (
     !data ||
     typeof data.url !== "string" ||
+    !data.url.startsWith("https://offerwall.me/offerwall/") ||
     typeof data.expires_at !== "number"
   ) {
     throw new Error("Invalid Offerwall session response");
   }
 
-  return data as { url: string; expires_at: number };
+  return {
+    url: data.url,
+    expires_at: data.expires_at,
+  };
 }
