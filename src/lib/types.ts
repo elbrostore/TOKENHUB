@@ -65,10 +65,22 @@ export interface Referral {
 export interface WithdrawalRequest {
   id: string;
   user_id: string;
+
+  // Legacy fields
   amount: number;
   method: string;
   destination: string;
-  status: "pending" | "approved" | "rejected" | "paid";
+
+  // Current payout fields
+  amount_tokens: number;
+  payout_method: string;
+  payout_details: {
+    destination?: string;
+    requested_method?: string;
+    [key: string]: unknown;
+  };
+
+  status: "pending" | "approved" | "processing" | "rejected" | "paid";
   admin_note: string | null;
   created_at: string;
   reviewed_at: string | null;

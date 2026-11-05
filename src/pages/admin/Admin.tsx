@@ -182,8 +182,12 @@ function WithdrawalsAdmin() {
             <thead><tr><th>User</th><th>Requested</th><th className="num">Amount</th><th>Method / details</th><th>Status</th><th>Decision</th></tr></thead>
             <tbody>{list.data.map((w) => (
               <tr key={w.id}>
-                <td>{w.email ?? w.user_id}</td><td>{formatDate(w.created_at)}</td><td className="num">{formatTokens(w.amount)}</td>
-                <td>{methodLabel(w.method)}<br /><code>{w.destination}</code></td><td><Badge status={w.status} /></td>
+                <td>{w.email ?? w.user_id}</td><td>{formatDate(w.created_at)}</td><td className="num">{formatTokens(w.amount_tokens ?? w.amount)}</td>
+                <td>
+  {methodLabel(w.payout_details?.requested_method ?? w.method ?? w.payout_method)}
+  <br />
+  <code>{w.payout_details?.destination ?? w.destination ?? ""}</code>
+</td><td><Badge status={w.status} /></td>
                 <td className="actions">
                   {(w.status === "pending" || w.status === "approved") && (<>
                     <input className="note-input" placeholder="Note (optional)" value={note[w.id] ?? ""} onChange={(e) => setNote({ ...note, [w.id]: e.target.value })} aria-label="Admin note" />
