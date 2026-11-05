@@ -133,7 +133,20 @@ function Tasks() {
           <label htmlFor="t-title">Title</label><input id="t-title" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           <label htmlFor="t-desc">Description</label><input id="t-desc" value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <div className="form-grid">
-            <div><label htmlFor="t-type">Type</label><input id="t-type" value={form.task_type} onChange={(e) => setForm({ ...form, task_type: e.target.value })} /></div>
+            <div>
+  <label htmlFor="t-type">Type</label>
+  <select
+    id="t-type"
+    value={form.task_type}
+    onChange={(e) => setForm({ ...form, task_type: e.target.value })}
+  >
+    <option value="offer">Offer</option>
+    <option value="survey">Survey</option>
+    <option value="ptc">PTC</option>
+    <option value="shortlink">Shortlink</option>
+    <option value="task">Task</option>
+  </select>
+</div>
             <div><label htmlFor="t-reward">Reward (tokens)</label><input id="t-reward" type="number" min={0} required value={form.reward} onChange={(e) => setForm({ ...form, reward: Number(e.target.value) })} /></div>
             <div><label htmlFor="t-max">Max completions / user</label><input id="t-max" type="number" min={1} value={form.max_completions_per_user} onChange={(e) => setForm({ ...form, max_completions_per_user: Number(e.target.value) })} /></div>
             <div><label htmlFor="t-provider">Provider key</label><input id="t-provider" placeholder="e.g. acme" value={form.provider ?? ""} onChange={(e) => setForm({ ...form, provider: e.target.value })} /></div>
