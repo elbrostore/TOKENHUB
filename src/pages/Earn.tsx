@@ -6,6 +6,7 @@ import {
   fetchTasks,
   startTask,
   createOfferwallSession,
+  checkOfferwallIpHeaders,
 } from "../lib/api";
 import { formatTokens, friendlyError } from "../lib/format";
 import { useAsync } from "../hooks/useAsync";
@@ -42,16 +43,34 @@ export function Earn() {
 
   const [busy, setBusy] = useState<string | null>(null);
   const [offerwallBusy, setOfferwallBusy] = useState(false);
+  const [ipCheckBusy, setIpCheckBusy] = useState(false);
+  const [ipDiagnostic, setIpDiagnostic] = useState<unknown>(null);
 
   const [message, setMessage] = useState<{
     kind: "success" | "error";
     text: string;
   } | null>(null);
 
+  const runIpDiagnostic = async () => {
+    setIpCheckBusy(true);
+    setIpDiagnostic(null);
+
+    try {
+      const result = await checkOfferwallIpHeaders();
+      setIpDiagnostic(result);
+    } catch (error) {
+      setIpDiagnostic({
+        success: false,
+        error: friendlyError(error),
+      });
+    } finally {
+      setIpCheckBusy(false);
+    }
+  };
+
   const openOfferwall = async () => {
     setMessage(null);
 
-    // Open synchronously to avoid browser popup blocking.
     const popup = window.open("about:blank", "_blank");
 
     if (!popup) {
@@ -159,6 +178,37 @@ export function Earn() {
       )}
 
       <section className="task-card" style={{ marginBottom: 20 }}>
+        <h4>IP Headers Diagnostic</h4>
+        <p>
+          Check which IP-related headers are visible to the Supabase Edge Function.
+          No IP address or secret is displayed.
+        </p>
+
+        <button
+          className="primary-button small"
+          disabled={ipCheckBusy}
+          onClick={runIpDiagnostic}
+        >
+          {ipCheckBusy ? "Testing..." : "Test IP Headers"}
+        </button>
+
+        {ipDiagnostic !== null && (
+          <pre
+            style={{
+              marginTop: 14,
+              padding: 12,
+              borderRadius: 8,
+              overflowX: "auto",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+            }}
+          >
+            {JSON.stringify(ipDiagnostic, null, 2)}
+          </pre>
+        )}
+      </section>
+
+      <section className="task-card" style={{ marginBottom: 20 }}>
         <div className="task-card-top">
           <div className="task-icon">
             <ExternalLink size={21} />
@@ -173,9 +223,7 @@ export function Earn() {
         </p>
 
         <div className="task-card-bottom">
-          <div className="muted">
-            Secure provider verification
-          </div>
+          <div className="muted">Secure provider verification</div>
 
           <button
             className="primary-button small"
