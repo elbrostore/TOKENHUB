@@ -3,7 +3,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-api-version",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -41,13 +42,13 @@ async function signIdentity(
     ["sign"],
   );
 
-  return toHex(
-    await crypto.subtle.sign(
-      "HMAC",
-      key,
-      new TextEncoder().encode(message),
-    ),
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(message),
   );
+
+  return toHex(signature);
 }
 
 Deno.serve(async (req) => {
@@ -76,7 +77,9 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authorization } },
+      global: {
+        headers: { Authorization: authorization },
+      },
       auth: {
         autoRefreshToken: false,
         persistSession: false,
@@ -110,7 +113,8 @@ Deno.serve(async (req) => {
       url: offerwallUrl.toString(),
       expires_at: expiry,
     });
-  } catch {
+  } catch (error) {
+    console.error("Offerwall launch error:", error);
     return json({ error: "Unable to create Offerwall session" }, 500);
   }
 });

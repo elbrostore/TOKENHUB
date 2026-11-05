@@ -14,6 +14,15 @@ function response(text: string, status = 200) {
   });
 }
 
+function reject(reason: string, status: number, details?: unknown) {
+  console.warn("OFFERWALL_POSTBACK_REJECTED", {
+    reason,
+    status,
+    details,
+  });
+  return response(reason, status);
+}
+
 function safeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
 
@@ -29,8 +38,17 @@ function validUuid(value: string): boolean {
 }
 
 Deno.serve(async (req) => {
+  const contentType = (
+    req.headers.get("content-type") ?? ""
+  ).split(";")[0].trim().toLowerCase();
+
+  console.log("OFFERWALL_POSTBACK_RECEIVED", {
+    method: req.method,
+    contentType,
+  });
+
   if (req.method !== "POST") {
-    return response("Method not allowed", 405);
+    return reject("Method not allowed", 405);
   }
 
   try {
@@ -39,35 +57,40 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!secret || !supabaseUrl || !serviceKey) {
-      console.error("Offerwall server configuration is incomplete");
-      return response("Server configuration error", 500);
+      console.error("OFFERWALL_POSTBACK_CONFIG_ERROR", {
+        hasSecret: Boolean(secret),
+        hasSupabaseUrl: Boolean(supabaseUrl),
+        hasServiceKey: Boolean(serviceKey),
+      });
+      return reject("Server configuration error", 500);
     }
-
-    const contentType = (
-      req.headers.get("content-type") ?? ""
-    ).split(";")[0].trim().toLowerCase();
 
     if (
       contentType !== "application/json" &&
       contentType !== "application/x-www-form-urlencoded"
     ) {
-      return response("Unsupported content type", 415);
+      return reject("Unsupported content type", 415, {
+        contentType,
+      });
     }
 
-    const contentLength = Number(req.headers.get("content-length") ?? "0");
+    const contentLengthHeader = req.headers.get("content-length");
+    const contentLength = contentLengthHeader === null
+      ? 0
+      : Number(contentLengthHeader);
 
     if (
       !Number.isFinite(contentLength) ||
       contentLength < 0 ||
       contentLength > MAX_BODY_SIZE
     ) {
-      return response("Invalid request size", 413);
+      return reject("Invalid request size", 413);
     }
 
     const rawBody = await req.text();
 
     if (new TextEncoder().encode(rawBody).length > MAX_BODY_SIZE) {
-      return response("Request too large", 413);
+      return reject("Request too large", 413);
     }
 
     const params = new URLSearchParams();
@@ -78,7 +101,7 @@ Deno.serve(async (req) => {
       try {
         body = JSON.parse(rawBody);
       } catch {
-        return response("Invalid JSON", 400);
+        return reject("Invalid JSON", 400);
       }
 
       if (
@@ -86,7 +109,7 @@ Deno.serve(async (req) => {
         body === null ||
         Array.isArray(body)
       ) {
-        return response("Invalid JSON body", 400);
+        return reject("Invalid JSON body", 400);
       }
 
       for (const [key, value] of Object.entries(body)) {
@@ -106,6 +129,18 @@ Deno.serve(async (req) => {
       }
     }
 
+    const receivedKeys = Array.from(params.keys());
+
+    console.log("OFFERWALL_POSTBACK_PARAMETERS", {
+      receivedKeys,
+      hasSubId: params.has("subId"),
+      hasTransId: params.has("transId"),
+      hasReward: params.has("reward"),
+      hasStatus: params.has("status"),
+      hasSignature: params.has("signature"),
+      hasPayout: params.has("payout"),
+    });
+
     const subId = params.get("subId") ?? "";
     const transId = params.get("transId") ?? "";
     const rewardRaw = params.get("reward") ?? "";
@@ -120,30 +155,39 @@ Deno.serve(async (req) => {
       !signature ||
       !["1", "2"].includes(status)
     ) {
-      return response("Missing or invalid parameters", 400);
+      return reject("Missing or invalid parameters", 400, {
+        hasSubId: Boolean(subId),
+        hasTransId: Boolean(transId),
+        hasReward: Boolean(rewardRaw),
+        hasSignature: Boolean(signature),
+        statusPresent: Boolean(status),
+        validStatus: ["1", "2"].includes(status),
+      });
     }
 
     if (!validUuid(subId)) {
-      return response("Invalid user ID", 400);
+      return reject("Invalid user ID", 400);
     }
 
     if (
       transId.trim().length === 0 ||
       transId.length > 255
     ) {
-      return response("Invalid transaction ID", 400);
+      return reject("Invalid transaction ID", 400);
     }
 
-    // Placement currency uses zero decimal places.
     if (
       !/^\d+$/.test(rewardRaw) ||
       !/^\d+(\.\d{1,4})?$/.test(payoutRaw)
     ) {
-      return response("Invalid numeric values", 400);
+      return reject("Invalid numeric values", 400, {
+        rewardFormatValid: /^\d+$/.test(rewardRaw),
+        payoutFormatValid: /^\d+(\.\d{1,4})?$/.test(payoutRaw),
+      });
     }
 
     if (!/^[a-f0-9]{32}$/.test(signature)) {
-      return response("Invalid signature", 403);
+      return reject("Invalid signature format", 403);
     }
 
     const expected = CryptoJS.MD5(
@@ -151,7 +195,7 @@ Deno.serve(async (req) => {
     ).toString().toLowerCase();
 
     if (!safeEqual(expected, signature)) {
-      return response("Invalid signature", 403);
+      return reject("Invalid signature", 403);
     }
 
     const reward = Number(rewardRaw);
@@ -163,7 +207,7 @@ Deno.serve(async (req) => {
       !Number.isFinite(payout) ||
       payout < 0
     ) {
-      return response("Invalid reward or payout", 400);
+      return reject("Invalid reward or payout", 400);
     }
 
     const supabase = createClient(supabaseUrl, serviceKey, {
@@ -194,21 +238,22 @@ Deno.serve(async (req) => {
     );
 
     if (error) {
-      console.error(
-        "Offerwall transaction processing failed:",
-        error.message,
-      );
-      return response("Processing failed", 500);
+      console.error("OFFERWALL_POSTBACK_PROCESSING_ERROR", {
+        message: error.message,
+        code: error.code,
+      });
+      return reject("Processing failed", 500);
     }
 
-    console.log(
-      "Offerwall postback processed:",
-      data?.result ?? "ok",
-    );
+    console.log("OFFERWALL_POSTBACK_PROCESSED", {
+      result: data?.result ?? "ok",
+    });
 
     return response("ok", 200);
   } catch (error) {
-    console.error("Offerwall postback error:", error);
-    return response("Internal server error", 500);
+    console.error("OFFERWALL_POSTBACK_UNEXPECTED_ERROR", {
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+    return reject("Internal server error", 500);
   }
 });
