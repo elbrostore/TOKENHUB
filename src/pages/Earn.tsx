@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { ArrowUpRight, ShieldCheck, Zap } from "lucide-react";
 import { fetchMyCompletions, fetchTasks, startTask } from "../lib/api";
@@ -10,7 +11,9 @@ function safeUrl(url: string | null): string | null {
   if (!url) return null;
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.toString() : null;
+    return parsed.protocol === "https:" || parsed.protocol === "http:"
+      ? parsed.toString()
+      : null;
   } catch {
     return null;
   }
@@ -20,28 +23,53 @@ function taskState(task: Task, completions: TaskCompletion[]) {
   const mine = completions.filter((c) => c.task_id === task.id);
   const done = mine.filter((c) => c.status === "completed").length;
   const open = mine.some((c) => c.status === "started");
-  return { done, open, limitReached: done >= task.max_completions_per_user };
+  return {
+    done,
+    open,
+    limitReached: done >= task.max_completions_per_user,
+  };
 }
 
 export function Earn() {
   const tasks = useAsync(fetchTasks, []);
   const completions = useAsync(fetchMyCompletions, []);
   const [busy, setBusy] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{
+    kind: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const begin = async (task: Task) => {
-    setBusy(task.id); setMessage(null);
+    setBusy(task.id);
+    setMessage(null);
+
+    // Open the tab immediately during the user's click.
+    const popup = window.open("about:blank", "_blank");
+    if (popup) popup.opener = null;
+
     try {
       const result = await startTask(task.id);
       const url = safeUrl(result.action_url);
-      if (url) {
-        window.open(url, "_blank", "noopener,noreferrer");
-        setMessage({ kind: "success", text: "Task started. Your tokens are credited automatically after the provider confirms completion." });
+
+      if (url && popup) {
+        popup.location.replace(url);
+        setMessage({
+          kind: "success",
+          text: "Task started. Your tokens are credited automatically after the provider confirms completion.",
+        });
       } else {
-        setMessage({ kind: "error", text: "This task has no provider link configured yet. Please try again later." });
+        popup?.close();
+        setMessage({
+          kind: "error",
+          text: !url
+            ? "This task has no valid provider link configured yet. Please try again later."
+            : "Your browser blocked the new tab. Allow pop-ups and click Continue again.",
+        });
       }
+
       completions.reload();
     } catch (e) {
+      popup?.close();
       setMessage({ kind: "error", text: friendlyError(e) });
     } finally {
       setBusy(null);
@@ -49,39 +77,91 @@ export function Earn() {
   };
 
   if (tasks.loading || completions.loading) return <Loading />;
-  if (tasks.error) return <ErrorState message={tasks.error} onRetry={tasks.reload} />;
-  if (completions.error) return <ErrorState message={completions.error} onRetry={completions.reload} />;
+  if (tasks.error) {
+    return <ErrorState message={tasks.error} onRetry={tasks.reload} />;
+  }
+  if (completions.error) {
+    return (
+      <ErrorState
+        message={completions.error}
+        onRetry={completions.reload}
+      />
+    );
+  }
+
   const list = tasks.data ?? [];
   const mine = completions.data ?? [];
 
   return (
     <>
-      <div className="info-banner"><ShieldCheck size={18} /> Rewards are only credited after a verified provider confirmation. Completing a task a second time, or replaying a callback, never pays twice.</div>
-      {message && <Alert kind={message.kind} onClose={() => setMessage(null)}>{message.text}</Alert>}
+      <div className="info-banner">
+        <ShieldCheck size={18} />
+        Rewards are only credited after a verified provider confirmation.
+        Completing a task a second time, or replaying a callback, never pays twice.
+      </div>
+
+      {message && (
+        <Alert kind={message.kind} onClose={() => setMessage(null)}>
+          {message.text}
+        </Alert>
+      )}
+
       {!list.length ? (
-        <EmptyState title="No active tasks right now" text="Check back soon: new earning opportunities are published regularly." />
+        <EmptyState
+          title="No active tasks right now"
+          text="Check back soon: new earning opportunities are published regularly."
+        />
       ) : (
         <div className="card-grid">
           {list.map((task) => {
             const st = taskState(task, mine);
+
             return (
               <article className="task-card" key={task.id}>
                 <div className="task-card-top">
-                  <div className="task-icon"><Zap size={21} /></div>
+                  <div className="task-icon">
+                    <Zap size={21} />
+                  </div>
                   <span className="chip">{task.task_type}</span>
                 </div>
+
                 <h4>{task.title}</h4>
-                <p>{task.description || "Complete this activity to earn tokens."}</p>
+                <p>
+                  {task.description ||
+                    "Complete this activity to earn tokens."}
+                </p>
+
                 <div className="task-card-bottom">
-                  <div className="reward"><strong>+{formatTokens(task.reward)}</strong><span>tokens</span></div>
-                  {st.limitReached ? <Badge status="completed" /> : (
-                    <button className="primary-button small" disabled={busy === task.id} onClick={() => begin(task)}>
-                      {st.open ? "Continue" : "Start"} <ArrowUpRight size={14} />
+                  <div className="reward">
+                    <strong>+{formatTokens(task.reward)}</strong>
+                    <span>tokens</span>
+                  </div>
+
+                  {st.limitReached ? (
+                    <Badge status="completed" />
+                  ) : (
+                    <button
+                      className="primary-button small"
+                      disabled={busy === task.id}
+                      onClick={() => begin(task)}
+                    >
+                      {st.open ? "Continue" : "Start"}
+                      <ArrowUpRight size={14} />
                     </button>
                   )}
                 </div>
-                {st.open && !st.limitReached && <div className="muted">In progress: waiting for provider confirmation.</div>}
-                {st.done > 0 && <div className="muted">Completed {st.done} / {task.max_completions_per_user}</div>}
+
+                {st.open && !st.limitReached && (
+                  <div className="muted">
+                    In progress: waiting for provider confirmation.
+                  </div>
+                )}
+
+                {st.done > 0 && (
+                  <div className="muted">
+                    Completed {st.done} / {task.max_completions_per_user}
+                  </div>
+                )}
               </article>
             );
           })}
