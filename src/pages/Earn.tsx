@@ -1,12 +1,19 @@
 
 import { useState } from "react";
-import { ArrowUpRight, ShieldCheck, Zap, ExternalLink } from "lucide-react";
+import {
+  ArrowUpRight,
+  ShieldCheck,
+  Zap,
+  ExternalLink,
+  Database,
+} from "lucide-react";
 import {
   fetchMyCompletions,
   fetchTasks,
   startTask,
   createOfferwallSession,
   checkOfferwallIpHeaders,
+  testOfferwallCatalog,
 } from "../lib/api";
 import { formatTokens, friendlyError } from "../lib/format";
 import { useAsync } from "../hooks/useAsync";
@@ -46,7 +53,10 @@ export function Earn() {
   const [busy, setBusy] = useState<string | null>(null);
   const [offerwallBusy, setOfferwallBusy] = useState(false);
   const [ipCheckBusy, setIpCheckBusy] = useState(false);
+  const [catalogBusy, setCatalogBusy] = useState(false);
+
   const [ipDiagnostic, setIpDiagnostic] = useState<unknown>(null);
+  const [catalogResult, setCatalogResult] = useState<unknown>(null);
 
   const [message, setMessage] = useState<{
     kind: "success" | "error";
@@ -67,6 +77,34 @@ export function Earn() {
       });
     } finally {
       setIpCheckBusy(false);
+    }
+  };
+
+  const runCatalogTest = async () => {
+    setCatalogBusy(true);
+    setCatalogResult(null);
+    setMessage(null);
+
+    try {
+      const result = await testOfferwallCatalog();
+      setCatalogResult(result);
+
+      setMessage({
+        kind: "success",
+        text: "Catalog request completed. Check the results below.",
+      });
+    } catch (error) {
+      setCatalogResult({
+        success: false,
+        error: friendlyError(error),
+      });
+
+      setMessage({
+        kind: "error",
+        text: friendlyError(error),
+      });
+    } finally {
+      setCatalogBusy(false);
     }
   };
 
@@ -186,6 +224,41 @@ export function Earn() {
           {message.text}
         </Alert>
       )}
+
+      <section className="task-card" style={{ marginBottom: 20 }}>
+        <div className="task-card-top">
+          <h4>Offerwall Catalog API Test</h4>
+          <Database size={20} />
+        </div>
+
+        <p>
+          Test the server connection to Offerwall.me and inspect the available
+          catalog categories. This test does not credit tokens or start offers.
+        </p>
+
+        <button
+          className="primary-button small"
+          disabled={catalogBusy}
+          onClick={runCatalogTest}
+        >
+          {catalogBusy ? "Loading catalog..." : "Test Offerwall Catalog"}
+        </button>
+
+        {catalogResult !== null && (
+          <pre
+            style={{
+              marginTop: 14,
+              padding: 12,
+              borderRadius: 8,
+              overflowX: "auto",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+            }}
+          >
+            {JSON.stringify(catalogResult, null, 2)}
+          </pre>
+        )}
+      </section>
 
       <section className="task-card" style={{ marginBottom: 20 }}>
         <h4>IP Headers Diagnostic</h4>

@@ -370,3 +370,50 @@ export async function checkOfferwallIpHeaders(): Promise<OfferwallIpDiagnostic> 
 
   return data as OfferwallIpDiagnostic;
 }
+
+/* ---------- Offerwall Catalog Diagnostic ---------- */
+
+export interface OfferwallCatalogResult {
+  success: boolean;
+  catalog?: {
+    offers?: unknown;
+    surveys?: unknown;
+    ptc?: unknown;
+    shortlinks?: unknown;
+    tasks?: unknown;
+  };
+  errors?: Record<string, string>;
+  country?: string;
+}
+
+export async function testOfferwallCatalog(): Promise<OfferwallCatalogResult> {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.access_token) {
+    throw new Error("Your session has expired. Please sign in again.");
+  }
+
+  const response = await fetch(
+    "https://tokenhub-ip-gateway.ayoubahssaini2.workers.dev/catalog",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+      cache: "no-store",
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data?.error || "Offerwall catalog request failed.");
+  }
+
+  return data as OfferwallCatalogResult;
+}
