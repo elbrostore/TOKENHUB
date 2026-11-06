@@ -1,3 +1,4 @@
+
 export interface Profile {
   id: string;
   email: string | null;
@@ -65,13 +66,9 @@ export interface Referral {
 export interface WithdrawalRequest {
   id: string;
   user_id: string;
-
-  // Legacy fields
   amount: number;
   method: string;
   destination: string;
-
-  // Current payout fields
   amount_tokens: number;
   payout_method: string;
   payout_details: {
@@ -79,7 +76,6 @@ export interface WithdrawalRequest {
     requested_method?: string;
     [key: string]: unknown;
   };
-
   status: "pending" | "approved" | "processing" | "rejected" | "paid";
   admin_note: string | null;
   created_at: string;
@@ -136,4 +132,41 @@ export interface PublicSettings {
   min_withdrawal_tokens: number;
   referral_reward_tokens: number;
   payout_methods: string[];
+}
+
+/* ---------- Offerwall safe catalog types ---------- */
+
+export type OfferwallCategory =
+  | "offers"
+  | "surveys"
+  | "ptc"
+  | "shortlinks"
+  | "tasks";
+
+export interface OfferwallStep {
+  id: string;
+  label: string;
+  reward: number;
+}
+
+export interface OfferwallOffer {
+  id: string;
+  provider: string;
+  title: string;
+  description: string;
+  image: string | null;
+  cover: string | null;
+  reward: number;
+  category: OfferwallCategory;
+  devices: string[];
+  countries: string[];
+  steps: OfferwallStep[];
+  multiStep: boolean;
+}
+
+export interface OfferwallCatalog {
+  success: boolean;
+  country: string | null;
+  offers: OfferwallOffer[];
+  errors: Partial<Record<OfferwallCategory, string>>;
 }
