@@ -15,8 +15,10 @@ import type { Task, TaskCompletion } from "../lib/types";
 
 function safeUrl(url: string | null): string | null {
   if (!url) return null;
+
   try {
     const parsed = new URL(url);
+
     return parsed.protocol === "https:" || parsed.protocol === "http:"
       ? parsed.toString()
       : null;
@@ -100,6 +102,7 @@ export function Earn() {
       });
     } catch (e) {
       popup.close();
+
       setMessage({
         kind: "error",
         text: friendlyError(e),
@@ -114,6 +117,7 @@ export function Earn() {
     setMessage(null);
 
     const popup = window.open("about:blank", "_blank");
+
     if (popup) popup.opener = null;
 
     try {
@@ -122,12 +126,14 @@ export function Earn() {
 
       if (url && popup) {
         popup.location.replace(url);
+
         setMessage({
           kind: "success",
           text: "Task started. Your tokens are credited automatically after the provider confirms completion.",
         });
       } else {
         popup?.close();
+
         setMessage({
           kind: "error",
           text: !url
@@ -139,7 +145,11 @@ export function Earn() {
       completions.reload();
     } catch (e) {
       popup?.close();
-      setMessage({ kind: "error", text: friendlyError(e) });
+
+      setMessage({
+        kind: "error",
+        text: friendlyError(e),
+      });
     } finally {
       setBusy(null);
     }
@@ -179,9 +189,10 @@ export function Earn() {
 
       <section className="task-card" style={{ marginBottom: 20 }}>
         <h4>IP Headers Diagnostic</h4>
+
         <p>
-          Check which IP-related headers are visible to the Supabase Edge Function.
-          No IP address or secret is displayed.
+          Check whether Cloudflare can identify your authenticated session,
+          client IP and country. Only a masked IP is displayed.
         </p>
 
         <button
@@ -213,10 +224,12 @@ export function Earn() {
           <div className="task-icon">
             <ExternalLink size={21} />
           </div>
+
           <span className="chip">Offerwall</span>
         </div>
 
         <h4>Discover more earning opportunities</h4>
+
         <p>
           Complete eligible offers from our provider. Rewards are credited
           only after the provider verifies the transaction.
@@ -254,10 +267,12 @@ export function Earn() {
                   <div className="task-icon">
                     <Zap size={21} />
                   </div>
+
                   <span className="chip">{task.task_type}</span>
                 </div>
 
                 <h4>{task.title}</h4>
+
                 <p>
                   {task.description ||
                     "Complete this activity to earn tokens."}
