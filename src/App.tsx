@@ -1,13 +1,32 @@
+
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import {
-  Bell, History, LayoutDashboard, LogOut, Menu, Settings, ShieldCheck, Users, Wallet, X, Zap, ArrowUpRight, Banknote,
+  Bell,
+  History,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Settings,
+  ShieldCheck,
+  Users,
+  Wallet,
+  X,
+  Zap,
+  ArrowUpRight,
+  Banknote,
 } from "lucide-react";
-import { AdsterraAds } from "./components/AdsterraAds";
+
+import {
+  AdsterraAdTop,
+  AdsterraAdsBottom,
+} from "./components/AdsterraAds";
+
 import { AuthProvider } from "./auth/AuthProvider";
 import { useAuth } from "./auth/useAuth";
 import { fetchDashboard } from "./lib/api";
 import { routeFromHash } from "./routes";
 import type { Route } from "./routes";
+
 import { AuthScreen } from "./pages/AuthScreen";
 import { ResetPassword } from "./pages/ResetPassword";
 import { Dashboard } from "./pages/Dashboard";
@@ -18,7 +37,12 @@ import { Referrals } from "./pages/Referrals";
 import { Withdrawals } from "./pages/Withdrawals";
 import { Notifications } from "./pages/Notifications";
 import { SettingsPage } from "./pages/Settings";
-const Admin = lazy(() => import("./pages/admin/Admin").then((m) => ({ default: m.Admin })));
+
+const Admin = lazy(() =>
+  import("./pages/admin/Admin").then((m) => ({
+    default: m.Admin,
+  }))
+);
 
 const MENU: { key: Route; name: string; icon: typeof Wallet }[] = [
   { key: "dashboard", name: "Dashboard", icon: LayoutDashboard },
@@ -33,7 +57,10 @@ const MENU: { key: Route; name: string; icon: typeof Wallet }[] = [
 
 function Shell() {
   const { user, profile, isAdmin, signOut } = useAuth();
-  const [route, setRoute] = useState<Route>(() => routeFromHash(window.location.hash));
+
+  const [route, setRoute] = useState<Route>(() =>
+    routeFromHash(window.location.hash)
+  );
   const [mobileOpen, setMobileOpen] = useState(false);
   const [unread, setUnread] = useState(0);
 
@@ -43,49 +70,123 @@ function Shell() {
   }, []);
 
   useEffect(() => {
-    const onHash = () => { setRoute(routeFromHash(window.location.hash)); window.scrollTo(0, 0); };
+    const onHash = () => {
+      setRoute(routeFromHash(window.location.hash));
+      window.scrollTo(0, 0);
+    };
+
     window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
+
+    return () => {
+      window.removeEventListener("hashchange", onHash);
+    };
   }, []);
 
   const refreshUnread = useCallback(() => {
-    fetchDashboard().then((d) => setUnread(Number(d.unread_notifications))).catch(() => undefined);
+    fetchDashboard()
+      .then((d) => setUnread(Number(d.unread_notifications)))
+      .catch(() => undefined);
   }, []);
-  useEffect(() => { refreshUnread(); }, [route, refreshUnread]);
 
-  const items = isAdmin ? [...MENU, { key: "admin" as Route, name: "Admin", icon: ShieldCheck }] : MENU;
+  useEffect(() => {
+    refreshUnread();
+  }, [route, refreshUnread]);
+
+  const items = isAdmin
+    ? [...MENU, { key: "admin" as Route, name: "Admin", icon: ShieldCheck }]
+    : MENU;
+
   const current = items.find((i) => i.key === route) ?? MENU[0];
-  const displayName = profile?.username || profile?.full_name || user?.email?.split("@")[0] || "Member";
+
+  const displayName =
+    profile?.username ||
+    profile?.full_name ||
+    user?.email?.split("@")[0] ||
+    "Member";
 
   return (
     <div className="app-shell">
-      {mobileOpen && <button className="mobile-overlay" onClick={() => setMobileOpen(false)} aria-label="Close menu" />}
+      {mobileOpen && (
+        <button
+          className="mobile-overlay"
+          onClick={() => setMobileOpen(false)}
+          aria-label="Close menu"
+        />
+      )}
+
       <aside className={`sidebar ${mobileOpen ? "sidebar-open" : ""}`}>
         <div className="brand">
           <div className="brand-symbol">T</div>
-          <div><div className="brand-name">TOKEN<span>HUB</span></div><div className="brand-caption">REWARDS PLATFORM</div></div>
-          <button className="close-menu" onClick={() => setMobileOpen(false)} aria-label="Close menu"><X size={20} /></button>
+
+          <div>
+            <div className="brand-name">
+              TOKEN<span>HUB</span>
+            </div>
+            <div className="brand-caption">REWARDS PLATFORM</div>
+          </div>
+
+          <button
+            className="close-menu"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close menu"
+          >
+            <X size={20} />
+          </button>
         </div>
+
         <div className="nav-label">MENU</div>
+
         <nav className="navigation" aria-label="Main">
           {items.map((item) => {
             const Icon = item.icon;
+
             return (
-              <button key={item.key} className={`nav-item ${route === item.key ? "active" : ""}`} aria-current={route === item.key ? "page" : undefined} onClick={() => go(item.key)}>
-                <Icon size={19} /><span>{item.name}</span>
-                {item.key === "notifications" && unread > 0 && <span className="notification-dot" aria-label={`${unread} unread`} />}
+              <button
+                key={item.key}
+                className={`nav-item ${
+                  route === item.key ? "active" : ""
+                }`}
+                aria-current={
+                  route === item.key ? "page" : undefined
+                }
+                onClick={() => go(item.key)}
+              >
+                <Icon size={19} />
+                <span>{item.name}</span>
+
+                {item.key === "notifications" && unread > 0 && (
+                  <span
+                    className="notification-dot"
+                    aria-label={`${unread} unread`}
+                  />
+                )}
               </button>
             );
           })}
         </nav>
+
         <div className="sidebar-bottom">
           <div className="security-card">
-            <div className="security-icon"><ShieldCheck size={20} /></div>
+            <div className="security-icon">
+              <ShieldCheck size={20} />
+            </div>
+
             <strong>Your account matters</strong>
-            <p>Keep your account secure and your information private.</p>
-            <button onClick={() => go("settings")}>Security settings <ArrowUpRight size={14} /></button>
+
+            <p>
+              Keep your account secure and your information private.
+            </p>
+
+            <button onClick={() => go("settings")}>
+              Security settings <ArrowUpRight size={14} />
+            </button>
           </div>
-          <button className="nav-item logout" onClick={signOut}><LogOut size={19} /><span>Sign out</span></button>
+
+          <button className="nav-item logout" onClick={signOut}>
+            <LogOut size={19} />
+            <span>Sign out</span>
+          </button>
+
           <div className="version">TOKENHUB · VERSION 1.0</div>
         </div>
       </aside>
@@ -93,34 +194,82 @@ function Shell() {
       <main className="main-area">
         <header className="topbar">
           <div className="topbar-left">
-            <button className="mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Open menu"><Menu size={22} /></button>
+            <button
+              className="mobile-menu"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open menu"
+            >
+              <Menu size={22} />
+            </button>
+
             <div>
-              <div className="breadcrumb">WORKSPACE <span>/</span> {current.name.toUpperCase()}</div>
+              <div className="breadcrumb">
+                WORKSPACE <span>/</span> {current.name.toUpperCase()}
+              </div>
               <h1>{current.name}</h1>
             </div>
           </div>
+
           <div className="topbar-actions">
-            <button className="notification-button" onClick={() => go("notifications")} aria-label="Notifications"><Bell size={19} />{unread > 0 && <i />}</button>
+            <button
+              className="notification-button"
+              onClick={() => go("notifications")}
+              aria-label="Notifications"
+            >
+              <Bell size={19} />
+              {unread > 0 && <i />}
+            </button>
+
             <div className="profile">
-              <div className="avatar">{displayName.charAt(0).toUpperCase()}</div>
-              <div className="profile-info"><strong>{displayName}</strong><span>{user?.email}</span></div>
+              <div className="avatar">
+                {displayName.charAt(0).toUpperCase()}
+              </div>
+
+              <div className="profile-info">
+                <strong>{displayName}</strong>
+                <span>{user?.email}</span>
+              </div>
             </div>
           </div>
         </header>
-       <div className="page-content">
-  {route !== "admin" && <AdsterraAds />}
 
-  {route === "dashboard" && <Dashboard go={go} />}
+        <div className="page-content">
+          {/* Top advertisement - all user pages except Admin */}
+          {route !== "admin" && <AdsterraAdTop />}
+
+          {/* User pages */}
+          {route === "dashboard" && <Dashboard go={go} />}
           {route === "earn" && <Earn />}
           {route === "wallet" && <WalletPage go={go} />}
           {route === "transactions" && <Transactions />}
           {route === "referrals" && <Referrals />}
           {route === "withdrawals" && <Withdrawals />}
-          {route === "notifications" && <Notifications onChanged={refreshUnread} />}
+          {route === "notifications" && (
+            <Notifications onChanged={refreshUnread} />
+          )}
           {route === "settings" && <SettingsPage />}
-          {route === "admin" && <Suspense fallback={<div className="state-box" role="status">Loading...</div>}><Admin /></Suspense>}
+
+          {/* Admin page - no advertisements */}
+          {route === "admin" && (
+            <Suspense
+              fallback={
+                <div className="state-box" role="status">
+                  Loading...
+                </div>
+              }
+            >
+              <Admin />
+            </Suspense>
+          )}
+
+          {/* Bottom advertisements - before footer */}
+          {route !== "admin" && <AdsterraAdsBottom />}
+
           <footer className="footer">
-            <div className="footer-brand">TOKEN<span>HUB</span></div>
+            <div className="footer-brand">
+              TOKEN<span>HUB</span>
+            </div>
+
             <span>© 2026 TOKENHUB. All rights reserved.</span>
           </footer>
         </div>
@@ -131,12 +280,25 @@ function Shell() {
 
 function Gate() {
   const { user, loading, passwordRecovery } = useAuth();
-  if (loading) return <div className="auth-loading" role="status">Loading TOKENHUB...</div>;
+
+  if (loading) {
+    return (
+      <div className="auth-loading" role="status">
+        Loading TOKENHUB...
+      </div>
+    );
+  }
+
   if (passwordRecovery) return <ResetPassword />;
   if (!user) return <AuthScreen />;
+
   return <Shell />;
 }
 
 export default function App() {
-  return <AuthProvider><Gate /></AuthProvider>;
+  return (
+    <AuthProvider>
+      <Gate />
+    </AuthProvider>
+  );
 }

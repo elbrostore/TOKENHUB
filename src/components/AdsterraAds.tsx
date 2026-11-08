@@ -82,10 +82,13 @@ var atOptions = {
   );
 }
 
-export function AdsterraAds() {
+export function AdsterraAdTop() {
+  return <AdsterraAd size="728x90" />;
+}
+
+export function AdsterraAdsBottom() {
   return (
     <div className="adsterra-placements">
-      <AdsterraAd size="728x90" />
       <AdsterraAd size="300x250" />
       <AdsterraAd size="160x300" />
     </div>
