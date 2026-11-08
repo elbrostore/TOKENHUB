@@ -1,9 +1,27 @@
+
+import { useEffect, useRef } from "react";
+
 type AdSize = "728x90" | "300x250" | "160x300";
 
-const AD_UNITS: Record<
-  AdSize,
-  { key: string; width: number; height: number }
-> = {
+type AdConfig = {
+  key: string;
+  width: number;
+  height: number;
+};
+
+declare global {
+  interface Window {
+    atOptions?: {
+      key: string;
+      format: string;
+      height: number;
+      width: number;
+      params: Record<string, never>;
+    };
+  }
+}
+
+const AD_UNITS: Record<AdSize, AdConfig> = {
   "728x90": {
     key: "ba1d7827074b6bf85408c15b05f23fb4",
     width: 728,
@@ -21,61 +39,67 @@ const AD_UNITS: Record<
   },
 };
 
+// Load ad scripts one by one to avoid atOptions conflicts.
+let adLoadQueue: Promise<void> = Promise.resolve();
+
 function AdsterraAd({ size }: { size: AdSize }) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const ad = AD_UNITS[size];
 
-  const srcDoc = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: transparent;
-}
-.ad-container {
-  width: ${ad.width}px;
-  height: ${ad.height}px;
-  margin: 0 auto;
-}
-</style>
-</head>
-<body>
-<div class="ad-container"></div>
-<script>
-var atOptions = {
-  'key': '${ad.key}',
-  'format': 'iframe',
-  'height': ${ad.height},
-  'width': ${ad.width},
-  'params': {}
-};
-</script>
-<script src="https://bauval.org/22/${ad.key}"></script>
-</body>
-</html>`;
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let cancelled = false;
+
+    adLoadQueue = adLoadQueue.then(
+      () =>
+        new Promise<void>((resolve) => {
+          if (cancelled || !container.isConnected) {
+            resolve();
+            return;
+          }
+
+          container.replaceChildren();
+
+          window.atOptions = {
+            key: ad.key,
+            format: "iframe",
+            height: ad.height,
+            width: ad.width,
+            params: {},
+          };
+
+          const script = document.createElement("script");
+          script.src = `https://bauval.org/22/${ad.key}`;
+          script.async = true;
+
+          script.onload = () => resolve();
+          script.onerror = () => resolve();
+
+          container.appendChild(script);
+        })
+    );
+
+    return () => {
+      cancelled = true;
+      container.replaceChildren();
+    };
+  }, [ad.key, ad.height, ad.width]);
 
   return (
     <div className="adsterra-unit">
       <div className="adsterra-label">ADVERTISEMENT</div>
-      <iframe
-        title={`Advertisement ${size}`}
-        srcDoc={srcDoc}
-        width={ad.width}
-        height={ad.height}
-        loading="lazy"
-        sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
-        referrerPolicy="strict-origin-when-cross-origin"
+
+      <div
+        ref={containerRef}
+        className="adsterra-banner"
         style={{
-          display: "block",
-          maxWidth: "100%",
-          border: 0,
+          width: "100%",
+          maxWidth: ad.width,
+          minHeight: ad.height,
           margin: "0 auto",
+          overflow: "hidden",
         }}
       />
     </div>
