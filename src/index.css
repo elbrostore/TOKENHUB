@@ -319,3 +319,38 @@ button:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
     font-size: 27px;
   }
 }
+/* Adsterra advertisements */
+.adsterra-placements {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  width: 100%;
+  margin: 24px auto;
+}
+
+.adsterra-unit {
+  width: 100%;
+  max-width: 728px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.adsterra-label {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--muted, #888);
+  margin-bottom: 7px;
+  text-align: center;
+}
+
+.adsterra-unit iframe {
+  max-width: 100%;
+}
+
+@media (max-width: 480px) {
+  .adsterra-placements {
+    gap: 16px;
+    margin: 18px auto;
+  }
+}

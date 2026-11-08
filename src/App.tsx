@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import {
   Bell, History, LayoutDashboard, LogOut, Menu, Settings, ShieldCheck, Users, Wallet, X, Zap, ArrowUpRight, Banknote,
 } from "lucide-react";
+import { AdsterraAds } from "./components/AdsterraAds";
 import { AuthProvider } from "./auth/AuthProvider";
 import { useAuth } from "./auth/useAuth";
 import { fetchDashboard } from "./lib/api";
@@ -106,8 +107,10 @@ function Shell() {
             </div>
           </div>
         </header>
-        <div className="page-content">
-          {route === "dashboard" && <Dashboard go={go} />}
+       <div className="page-content">
+  {route !== "admin" && <AdsterraAds />}
+
+  {route === "dashboard" && <Dashboard go={go} />}
           {route === "earn" && <Earn />}
           {route === "wallet" && <WalletPage go={go} />}
           {route === "transactions" && <Transactions />}

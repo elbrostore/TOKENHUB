@@ -5,7 +5,6 @@ import { useAsync } from "../hooks/useAsync";
 import { useAuth } from "../auth/useAuth";
 import { EmptyState, ErrorState, Loading, StatCard } from "../components/ui";
 import type { Route } from "../routes";
-import { AdsterraBanner } from "../components/AdsterraBanner";
 
 export function Dashboard({ go }: { go: (r: Route) => void }) {
   const { profile, user } = useAuth();
@@ -35,8 +34,6 @@ export function Dashboard({ go }: { go: (r: Route) => void }) {
         <StatCard label="Completed tasks" value={formatTokens(s.completed_tasks)} caption="Verified completions" tone="purple" icon={<CheckCircle2 size={19} />} />
         <StatCard label="Referral rewards" value={formatTokens(s.referral_earnings)} unit="TOKENS" caption={`${s.referrals_rewarded} of ${s.referrals_total} referrals rewarded`} tone="orange" icon={<Users size={19} />} />
       </section>
-
-            <AdsterraBanner />
            <section className="content-grid">
         <div className="panel earn-panel">
           <div className="panel-heading">
